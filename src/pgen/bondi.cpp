@@ -4,15 +4,8 @@
 // contributors Licensed under the 3-clause BSD License, see LICENSE file for
 // details
 //========================================================================================
-//! \file blast.cpp
-//! \brief Problem generator for spherical blast wave problem.  Works in
-//! Cartesian,
-//!        cylindrical, and spherical coordinates.  Contains post-processing
-//!        code to check whether blast is spherical for regression tests
-//!
-//! REFERENCE: P. Londrillo & L. Del Zanna, "High-order upwind schemes for
-//!   multidimensional MHD", ApJ, 530, 508 (2000), and references therein.
-
+//! \file bondi.cpp
+//! \brief Problem generator for spherical non-relativistic Bondi problem.
 // C headers
 
 // C++ headers
@@ -41,7 +34,7 @@
 // Declarations start here
 namespace {
 Real mbh;
-Real gamma_idx, inv_gamma, gm1, inv_gm1, polytropic_constant;
+Real gamma_idx, inv_gamma, gm1, inv_gm1, polytropic_constant, k_units_cgs;
 Real rho_infty, ur_infty, cs2_infty, cs_infty, pres_infty, en_den_infty;
 Real GN;
 Real rB;
@@ -58,36 +51,40 @@ void FixedBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim,
 // End of declarations
 
 void Mesh::InitUserMeshData(ParameterInput *pin) {
+  // Enroll Source term
   EnrollUserExplicitSourceFunction(GravitationalSource);
+
+  // Enroll boundary functions
+  EnrollUserBoundaryFunction(BoundaryFace::outer_x1, FixedBoundary);
+
+  // Setup units
   Units units(pin);
   GN = units.grav_const_code;
-  // Read problem parameters
+
+  // Read problem input parameters
   gamma_idx = pin->GetReal("hydro", "gamma");
   mbh = pin->GetReal("problem", "mbh");
   rho_infty = pin->GetReal("problem", "rho_infty");
   cs_infty = pin->GetReal("problem", "cs_infty");
   ur_infty = pin->GetReal("problem", "ur_infty");
-  cs2_infty = cs_infty * cs_infty;
 
+  // Setup derived parameters
+  cs2_infty = cs_infty * cs_infty;
   inv_gamma = 1. / gamma_idx;
   gm1 = gamma_idx - 1;
   inv_gm1 = 1. / gm1;
 
-  rB = GN * mbh / cs2_infty;
+  rB = GN * mbh / cs2_infty; // Bondi radius
 
   // For polytropic gas : P = k ρ^Γ
   //                    : cs^2 = k Γ ρ^(Γ-1)
-  polytropic_constant =
-      cs_infty * cs_infty * inv_gamma / std::pow(rho_infty, gm1);
+  polytropic_constant = cs2_infty * inv_gamma / std::pow(rho_infty, gm1);
   pres_infty = polytropic_constant * std::pow(rho_infty, gamma_idx);
 
-  const Real k_units_cgs =
+  k_units_cgs = // units for polytropic_constant
       units.code_pressure_cgs / std::pow(units.code_density_cgs, gamma_idx);
 
-  en_den_infty = pres_infty / gm1 + 0.5 * ur_infty * ur_infty * rho_infty;
-
-  // Enroll boundary functions
-  EnrollUserBoundaryFunction(BoundaryFace::outer_x1, FixedBoundary);
+  en_den_infty = pres_infty * inv_gm1 + 0.5 * ur_infty * ur_infty * rho_infty;
 
   // Print out useful information
 #define LEFTSETW(x) std::left << std::setw(x)
@@ -150,6 +147,7 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
       }
     }
   }
+  return;
 }
 
 void GravitationalSource(MeshBlock *pmb, const Real time, const Real dt,
@@ -169,6 +167,7 @@ void GravitationalSource(MeshBlock *pmb, const Real time, const Real dt,
       }
     }
   }
+  return;
 }
 
 void FixedBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim,
@@ -183,4 +182,5 @@ void FixedBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim,
       }
     }
   }
+  return;
 }
