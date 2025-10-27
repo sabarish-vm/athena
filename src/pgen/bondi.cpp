@@ -142,6 +142,7 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
       for (int i = is; i <= ie; i++) {
         phydro->u(IDN, k, j, i) = rho_infty;
         phydro->u(IM1, k, j, i) = rho_infty * ur_infty;
+        phydro->u(IEN, k, j, i) = en_den_infty;
         phydro->u(IM2, k, j, i) = 0.0;
         phydro->u(IM3, k, j, i) = 0.0;
       }
@@ -176,9 +177,12 @@ void FixedBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim,
   for (int k = kl; k <= ku; ++k) {
     for (int j = jl; j <= ju; ++j) {
       for (int i = 1; i <= ngh; ++i) {
-        prim(IDN, k, j, il - i) = rho_infty;
-        prim(IVX, k, j, il - i) = ur_infty;
-        prim(IPR, k, j, il - i) = pres_infty;
+        prim(IDN, k, j, iu + ngh) = rho_infty;
+        prim(IVX, k, j, iu + ngh) = ur_infty;
+        prim(IPR, k, j, iu + ngh) = pres_infty;
+        prim(IDN, k, j, iu + 1) = rho_infty;
+        prim(IVX, k, j, iu + 1) = ur_infty;
+        prim(IPR, k, j, iu + 1) = pres_infty;
       }
     }
   }
