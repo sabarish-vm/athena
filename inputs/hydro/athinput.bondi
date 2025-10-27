@@ -23,12 +23,14 @@ ncycle_out  = 1         # interval for stdout summary info
 nx1        = 512         # Number of zones in X1-direction
 x1min      = 1e-2        # minimum value of X1
 x1max      = 1e2        # maximum value of X1
+x1rat      = 1.00271127
 ix1_bc     = outflow    # inner-X1 boundary flag
 ox1_bc     = user    # outer-X1 boundary flag
 
 nx2        = 64             # Number of zones in X2-direction
 x2min      = 0.52359877559  # minimum value of X2
 x2max      = 1.57079632679  # maximum value of X2
+x2rat      = 1.0
 ix2_bc     = outflow        # inner-X2 boundary flag
 ox2_bc     = outflow        # outer-X2 boundary flag
 
@@ -41,12 +43,11 @@ ox3_bc     = outflow        # outer-X3 boundary flag
 
 <hydro>
 gamma           = 1.1  # gamma = C_p/C_v
-iso_sound_speed = 1.0
 
 <problem>
 rho_infty = 1.0
 cs_infty = 1.0
-ur_infty = 1e-6
+ur_infty = -1e-6
 mbh = 1.0
 
 <units> # Units such that rho_infty is 1, cs_infty is 1, mbh is 1
