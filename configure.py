@@ -272,6 +272,17 @@ parser.add_argument('-crdiff',
                     default=False,
                     help='enable implicit cosmic ray diffusion')
 
+# -first_timestep argument
+parser.add_argument('-first_dt_enabled',
+                    action='store_true',
+                    default=False,
+                    help='enable first time step')
+
+# --nspecies=[value] argument
+parser.add_argument('--first_dt',
+                    default='1.0',
+                    help='set default value for first time step')
+
 # The main choices for --cxx flag, using "ctype[-suffix]" formatting, where "ctype" is the
 # major family/suite/group of compilers and "suffix" may represent variants of the
 # compiler version and/or predefined sets of compiler options. The C++ compiler front ends
@@ -483,6 +494,15 @@ definitions['NUMBER_PASSIVE_SCALARS'] = args['nscalars']
 
 # --nspecies=[value] argument
 definitions['NUMBER_CHEMICAL_SPECIES'] = args['nspecies']
+
+# --first_dt=[value] argument
+definitions['FIRST_TIMESTEP'] = args['first_dt']
+
+# -first_timestep
+if args['first_dt_enabled'] :
+    definitions['FIRST_TIMESTEP_ENABLED'] = "1"
+else :
+    definitions['FIRST_TIMESTEP_ENABLED'] = "0"
 
 # -b argument
 # set variety of macros based on whether MHD/hydro or adi/iso are defined
@@ -963,6 +983,9 @@ with open(makefile_input, 'r') as current_file:
 
 # Make substitutions
 for key, val in definitions.items():
+    print(defsfile_template)
+    print(val)
+    print(r'@{0}@'.format(key))
     defsfile_template = re.sub(r'@{0}@'.format(key), val, defsfile_template)
 for key, val in makefile_options.items():
     makefile_template = re.sub(r'@{0}@'.format(key), val, makefile_template)
@@ -1012,6 +1035,8 @@ output_config('Radiative Transfer', ('ON' if args['nr_radiation'] else 'OFF'), f
 output_config('Implicit Radiation', ('ON' if args['implicit_radiation'] else 'OFF'), flog)
 output_config('Cosmic Ray Transport', ('ON' if args['cr'] else 'OFF'), flog)
 output_config('Cosmic Ray Diffusion', ('ON' if args['crdiff'] else 'OFF'), flog)
+output_config('First timestep switch', ('ON' if args['first_dt'] else 'OFF'), flog)
+output_config('First timestep value', definitions['FIRST_TIMESTEP'], flog)
 output_config('Frame transformations', ('ON' if args['t'] else 'OFF'), flog)
 output_config('Self-Gravity', self_grav_string, flog)
 output_config('Super-Time-Stepping', ('ON' if args['sts'] else 'OFF'), flog)

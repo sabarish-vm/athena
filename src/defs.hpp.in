@@ -79,6 +79,12 @@
 // enable general relativity? default=0 (false)
 #define GENERAL_RELATIVITY @GENERAL_RELATIVITY@
 
+// enable first_timestep? default=0 (false)
+#define FIRST_TIMESTEP_ENABLED @FIRST_TIMESTEP_ENABLED@
+
+// enable first_timestep? default=1.0
+#define FIRST_TIMESTEP @FIRST_TIMESTEP@
+
 // use single precision floating-point values (binary32)? default=0 (false; use binary64)
 #define SINGLE_PRECISION_ENABLED @SINGLE_PRECISION_ENABLED@
 

@@ -1278,6 +1278,12 @@ void Mesh::NewTimeStep() {
     }
   }
 
+  if(time == 0) {
+#ifdef FIRST_TIMESTEP_ENABLED
+    dt=FIRST_TIMESTEP;
+#endif // FIRST_TIMESTEP
+  }
+
   return;
 }
 
