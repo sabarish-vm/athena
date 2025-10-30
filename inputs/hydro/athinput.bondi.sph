@@ -17,24 +17,25 @@ nlim       = -1         # cycle limit
 tlim       = 0.5       # time limit
 integrator  = vl2       # time integration algorithm
 xorder      = 2         # order of spatial reconstruction
-ncycle_out  = 1         # interval for stdout summary info
+ncycle_out  = 1000         # interval for stdout summary info
 
 <mesh>
-nx1        = 512         # Number of zones in X1-direction
+nx1        = 2048         # Number of zones in X1-direction
 x1min      = 5e-5      # minimum value of X1
-x1max      = 0.5        # maximum value of X1
-x1rat      = 1.00271127
+x1max      = 5e-1        # maximum value of X1
+#x1rat      = 1.00271127
+x1rat = 1.00067713069
 ix1_bc     = outflow    # inner-X1 boundary flag
 ox1_bc     = user    # outer-X1 boundary flag
 
-nx2        = 64             # Number of zones in X2-direction
+nx2        = 1             # Number of zones in X2-direction
 x2min      = 0.0           # minimum value of X2
 x2max      = 3.141592653589793  # maximum value of X2
 x2rat      = 1.0
 ix2_bc     = outflow        # inner-X2 boundary flag
 ox2_bc     = outflow        # outer-X2 boundary flag
 
-nx3        = 32             # Number of zones in X3-direction
+nx3        = 1             # Number of zones in X3-direction
 x3min      = -0.78539816339 # minimum value of X3
 x3max      =  0.78539816339 # maximum value of X3
 ix3_bc     = outflow        # inner-X3 boundary flag
@@ -47,9 +48,8 @@ gamma           = 1.1  # gamma = C_p/C_v
 <problem>
 rho_infty = 1.0
 cs_infty = 1.0
-ur_infty = -1e-6
+ur_infty = -1e-4
 mbh = 1.0
-# ic_mode : 0 = constant profile, 1 = realistic profile
 ic_mode = 0
 
 <units> # Units such that rho_infty is 1, cs_infty is 1, mbh is 1
