@@ -41,7 +41,7 @@ Real gamma_idx, inv_gamma, gm1, inv_gm1, polytropic_constant, k_units_cgs;
 Real rho_infty, ur_infty, cs2_infty, cs_infty, pres_infty, en_den_infty;
 Real GN;
 Real rB;
-int ic_mode;
+int ic_mode, bc_mode;
 } // namespace
 void GravitationalSource(MeshBlock *pmb, const Real time, const Real dt,
                          const AthenaArray<Real> &prim,
@@ -59,8 +59,8 @@ init_profile(const int &is, const int &ie, Coordinates *pcoords) {
   py::scoped_interpreter guard{};
   // Set paths
   py::module sys = py::module::import("sys");
-  sys.attr("path").attr("append")
-        ("/beegfs/u/bbc3945/Spike/bondi/simulations_pp/athena/src/pgen");
+  sys.attr("path").attr("append")(
+      "/beegfs/u/bbc3945/Spike/bondi/simulations_pp/athena/src/pgen");
   // Import Python module
   py::module_ mymodule = py::module_::import("bondi");
   // Get Python function
@@ -90,8 +90,12 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   // Enroll Source term
   EnrollUserExplicitSourceFunction(GravitationalSource);
 
+  bc_mode = pin->GetInteger("problem", "bc_mode");
   // Enroll boundary functions
-  EnrollUserBoundaryFunction(BoundaryFace::outer_x1, FixedBoundary);
+  if (bc_mode > 0) {
+    EnrollUserBoundaryFunction(BoundaryFace::outer_x1, FixedBoundary);
+  } else {
+  }
 
   // Setup units
   Units units(pin);
@@ -105,7 +109,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   ur_infty = pin->GetReal("problem", "ur_infty");
 
   // Choose IC mode
-  ic_mode = pin->GetOrAddInteger("problem", "ic_mode", 0);
+  ic_mode = pin->GetInteger("problem", "ic_mode");
 
   // Setup derived parameters
   cs2_infty = cs_infty * cs_infty;
@@ -132,6 +136,18 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
     msg << std::setprecision(2) << '\n';
     msg << "######################################" << '\n';
     msg << "#############  Bondi problem generator" << '\n';
+    msg << "###### Setup\n";
+    if (ic_mode > 0) {
+      msg << LEFTSETW(33) << "Initial conditions " << ": " << "Realistic\n";
+    } else {
+      msg << LEFTSETW(33) << "Initial conditions :" << ": " << "Uniform\n";
+    }
+    if (bc_mode > 0) {
+      msg << LEFTSETW(33) << "Boundary conditions " << ": " << "Fixed\n";
+    } else {
+      msg << LEFTSETW(33) << "Boundary conditions " << ": " << "Open\n";
+    }
+
     msg << LEFTSETW(33) << "Polytropic gas index" << ":  " << gamma_idx << '\n';
     msg << LEFTSETW(33) << "Gravitational constant " << ":  " << GN << " [code]"
         << '\n';
