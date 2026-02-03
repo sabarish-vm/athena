@@ -9,6 +9,7 @@
 // C headers
 #include <pybind11/embed.h> // for embedding Python
 #include <pybind11/numpy.h> // for numpy support
+#include <sys/stat.h>
 
 // C++ headers
 #include <cmath>
@@ -16,6 +17,7 @@
 #include <cstring> // strcmp()
 #include <iomanip>
 #include <iostream>
+#include <ostream>
 #include <sstream>
 #include <string>
 #include <tuple>
@@ -41,6 +43,7 @@ Real gamma_idx, inv_gamma, gm1, inv_gm1, polytropic_constant, k_units_cgs;
 Real rho_infty, ur_infty, cs2_infty, cs_infty, pres_infty, en_den_infty;
 Real GN;
 Real rB;
+Real sbm_cgs, sbm_code, cgs_cross_section_code;
 int ic_mode, bc_mode;
 } // namespace
 void GravitationalSource(MeshBlock *pmb, const Real time, const Real dt,
@@ -52,15 +55,35 @@ void GravitationalSource(MeshBlock *pmb, const Real time, const Real dt,
 void FixedBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim,
                    FaceField &bb, Real time, Real dt, int il, int iu, int jl,
                    int ju, int kl, int ku, int ngh);
+
+void Conductivity(HydroDiffusion *phdif, MeshBlock *pmb,
+                  const AthenaArray<Real> &prim, const AthenaArray<Real> &bcc,
+                  int is, int ie, int js, int je, int ks, int ke);
 // End of declarations
+
+bool path_exists(const std::string &path) {
+  struct stat buffer;
+  int result = stat(path.c_str(), &buffer);
+  return (result == 0);
+}
 
 std::tuple<py::array_t<Real>, py::array_t<Real>>
 init_profile(const int &is, const int &ie, Coordinates *pcoords) {
   py::scoped_interpreter guard{};
-  // Set paths
+  // Set paths and check if path exists
   py::module sys = py::module::import("sys");
-  sys.attr("path").attr("append")(
-      "/beegfs/u/bbc3945/Spike/bondi/simulations_pp/athena/src/pgen");
+  sys.attr("path").attr("append")(PGEN_ABSPATH);
+  std::string pymod_path = std::string(PGEN_ABSPATH) + std::string("/bondi.py");
+  bool module_exists = path_exists(pymod_path);
+  if (module_exists) {
+  } else {
+    std::stringstream err;
+    err << "Python module bondi.py for generating analytical profiles does not "
+           "exist\n";
+    err << "Expected path = " << pymod_path;
+    throw std::runtime_error(err.str());
+  }
+
   // Import Python module
   py::module_ mymodule = py::module_::import("bondi");
   // Get Python function
@@ -73,14 +96,18 @@ init_profile(const int &is, const int &ie, Coordinates *pcoords) {
     const Real r = pcoords->x1v(i) / rB;
     vec.push_back(r);
   }
+
   // Create a numpy array
   py::array_t<Real> input_arr(vec.size(), vec.data());
+
   // Python call
   py::tuple result = func(gamma_idx, input_arr);
+
   // Untuple the python tuple
   mdot = result[0].cast<Real>();
   py::array_t<Real> rad_vel = result[1].cast<py::array_t<Real>>();
   py::array_t<Real> rho = result[2].cast<py::array_t<Real>>();
+
   // Create a cpp tuple of density and velocity profile to return
   auto ret_tuple = std::make_tuple(rad_vel, rho);
   return ret_tuple;
@@ -100,6 +127,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   // Setup units
   Units units(pin);
   GN = units.grav_const_code;
+  cgs_cross_section_code = units.cm_code * units.cm_code / units.gram_code;
 
   // Read problem input parameters
   gamma_idx = pin->GetReal("hydro", "gamma");
@@ -110,6 +138,14 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 
   // Choose IC mode
   ic_mode = pin->GetInteger("problem", "ic_mode");
+
+  // Cross-section for Conductivity
+  sbm_cgs = pin->GetOrAddReal("problem", "sbm_cgs", 0.0);
+  sbm_code = sbm_cgs * cgs_cross_section_code;
+  // Enroll Conductivity function
+  if (sbm_cgs > 0.0) {
+    EnrollConductionCoefficient(Conductivity);
+  }
 
   // Setup derived parameters
   cs2_infty = cs_infty * cs_infty;
@@ -167,6 +203,10 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
         << LEFTSETW(num_width) << cs_infty
         << " [code] = " << LEFTSETW(num_width) << cs_infty / units.km_s_code
         << " [km/s]" << '\n';
+    msg << "#### Heat Conduction :\n";
+    msg << LEFTSETW(33) << "## Cross-section " << ":  " << LEFTSETW(num_width)
+        << sbm_code << " [code] = " << LEFTSETW(num_width) << sbm_cgs
+        << " [cm^2/g]" << '\n';
     msg << "###### Derived parameters" << '\n';
     msg << LEFTSETW(33) << "## Bondi radius " << ":  " << LEFTSETW(num_width)
         << rB << " [code] = " << LEFTSETW(num_width) << rB / units.pc_code
@@ -259,9 +299,9 @@ void FixedBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim,
   for (int k = kl; k <= ku; ++k) {
     for (int j = jl; j <= ju; ++j) {
       for (int i = 1; i <= ngh; ++i) {
-        prim(IDN, k, j, iu + ngh) = rho_infty;
-        prim(IVX, k, j, iu + ngh) = ur_infty;
-        prim(IPR, k, j, iu + ngh) = pres_infty;
+        // prim(IDN, k, j, iu + ngh) = rho_infty;
+        // prim(IVX, k, j, iu + ngh) = ur_infty;
+        // prim(IPR, k, j, iu + ngh) = pres_infty;
         prim(IDN, k, j, iu + 1) = rho_infty;
         prim(IVX, k, j, iu + 1) = ur_infty;
         prim(IPR, k, j, iu + 1) = pres_infty;
@@ -269,4 +309,22 @@ void FixedBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim,
     }
   }
   return;
+}
+
+void Conductivity(HydroDiffusion *phdif, MeshBlock *pmb,
+                  const AthenaArray<Real> &prim, const AthenaArray<Real> &bcc,
+                  int is, int ie, int js, int je, int ks, int ke) {
+  if (phdif->kappa_iso > 0.0) {
+    for (int k = ks; k <= ke; ++k) {
+      for (int j = js; j <= je; ++j) {
+        for (int i = is; i <= ie; ++i) {
+          Real den = prim(IDN, k, j, i);
+          Real press = prim(IPR, k, j, i);
+          Real kappa_smfp =
+              2.1 * std::sqrt(press) / std::pow(den, 1.5) / sbm_code;
+          phdif->kappa(HydroDiffusion::DiffProcess::iso, k, j, i) = kappa_smfp;
+        }
+      }
+    }
+  }
 }

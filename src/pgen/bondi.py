@@ -65,6 +65,10 @@ def extract(arr):
 
 
 def soln(gamma, arr):
+    if gamma >= 1.659:
+        gamma = 1.659
+    else:
+        pass
     mdotval = mdot0(gamma)
     c1 = calculate_flow(gamma, mdot0(gamma), "sub")
     x1, y1 = extract(c1)

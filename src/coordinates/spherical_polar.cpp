@@ -9,12 +9,14 @@
 // C headers
 
 // C++ headers
+#include <cassert>
 #include <cmath>  // pow(), trig functions
 #include <iomanip>
 #include <iostream>   // endl
 #include <limits>
 #include <sstream>    // stringstream
 #include <stdexcept>  // runtime_error
+#include <vector>
 
 // Athena++ headers
 #include "../athena.hpp"
@@ -70,11 +72,26 @@ void Coordinates::Initialize(ParameterInput *pin) {
 
   // initialize volume-averaged coordinates and spacing
   // x1-direction: x1v = (\int r dV / \int dV) = d(r^4/4)/d(r^3/3)
+  std::vector<int> _negative_r_errlist;
+  bool _negative_r_found = false;
   for (int i=il-ng; i<=iu+ng; ++i) {
     x1v(i) = 0.75*(std::pow(x1f(i+1), 4) - std::pow(x1f(i), 4)) /
              (std::pow(x1f(i+1), 3) - std::pow(x1f(i), 3));
     // reduces to eq for centroid: R_i + 2*R_i*dR_i^2/(12*R_i^2 + dR_i^2)
     // see Mignone (2014) eq 17, e.g.
+    if(x1v(i)<0) {
+            _negative_r_errlist.push_back(i);
+            _negative_r_found = true;
+        }
+  }
+  if (_negative_r_found) {
+    std::stringstream err;
+    err << "Radial coordinate is negative for the cells : \n";
+    err << "(Note that in this check, the indices also include the ghost indices)\n";
+    for(const auto& elem : _negative_r_errlist) {
+            err << elem <<", ";
+    }
+    throw std::runtime_error(err.str());
   }
   for (int i=il-ng; i<=iu+ng-1; ++i) {
     dx1v(i) = x1v(i+1) - x1v(i);
