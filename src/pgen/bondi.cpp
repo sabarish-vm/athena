@@ -7,11 +7,13 @@
 //! \file bondi.cpp
 //! \brief Problem generator for spherical non-relativistic Bondi problem.
 // C headers
+#include <limits>
 #include <pybind11/embed.h> // for embedding Python
 #include <pybind11/numpy.h> // for numpy support
 #include <sys/stat.h>
 
 // C++ headers
+#include <algorithm>
 #include <cmath>
 #include <cstdio>  // fopen(), fprintf(), freopen()
 #include <cstring> // strcmp()
@@ -38,7 +40,7 @@ namespace py = pybind11;
 
 // Declarations start here
 namespace {
-Real mbh, mdot;
+Real mbh, mdot, mdot_python;
 Real gamma_idx, inv_gamma, gm1, inv_gm1, polytropic_constant, k_units_cgs;
 Real rho_infty, ur_infty, cs2_infty, cs_infty, pres_infty, en_den_infty;
 Real GN;
@@ -59,6 +61,8 @@ void FixedBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim,
 void Conductivity(HydroDiffusion *phdif, MeshBlock *pmb,
                   const AthenaArray<Real> &prim, const AthenaArray<Real> &bcc,
                   int is, int ie, int js, int je, int ks, int ke);
+
+Real GravityTimeStep(MeshBlock *pmb);
 // End of declarations
 
 bool path_exists(const std::string &path) {
@@ -104,7 +108,7 @@ init_profile(const int &is, const int &ie, Coordinates *pcoords) {
   py::tuple result = func(gamma_idx, input_arr);
 
   // Untuple the python tuple
-  mdot = result[0].cast<Real>();
+  mdot_python = result[0].cast<Real>();
   py::array_t<Real> rad_vel = result[1].cast<py::array_t<Real>>();
   py::array_t<Real> rho = result[2].cast<py::array_t<Real>>();
 
@@ -116,6 +120,9 @@ init_profile(const int &is, const int &ie, Coordinates *pcoords) {
 void Mesh::InitUserMeshData(ParameterInput *pin) {
   // Enroll Source term
   EnrollUserExplicitSourceFunction(GravitationalSource);
+
+  // Enroll Gravitational timestep
+  EnrollUserTimeStepFunction(GravityTimeStep);
 
   bc_mode = pin->GetInteger("problem", "bc_mode");
   // Enroll boundary functions
@@ -165,6 +172,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 
   en_den_infty = pres_infty * inv_gm1 + 0.5 * ur_infty * ur_infty * rho_infty;
 
+  mdot = PI * (GN * GN * mbh * mbh) * rho_infty / (cs_infty * cs2_infty);
   { // Print out useful information
 #define LEFTSETW(x) std::left << std::setw(x)
     const int num_width = 8;
@@ -208,6 +216,10 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
         << sbm_code << " [code] = " << LEFTSETW(num_width) << sbm_cgs
         << " [cm^2/g]" << '\n';
     msg << "###### Derived parameters" << '\n';
+    msg << LEFTSETW(33) << "## Accretion rate " << ":  " << LEFTSETW(num_width)
+        << mdot << " [code] = " << LEFTSETW(num_width)
+        << mdot / units.solar_mass_code * units.yr_code << " [solmass/yr]"
+        << '\n';
     msg << LEFTSETW(33) << "## Bondi radius " << ":  " << LEFTSETW(num_width)
         << rB << " [code] = " << LEFTSETW(num_width) << rB / units.pc_code
         << " [pc]" << '\n';
@@ -251,6 +263,23 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
           const Real en_den = press * inv_gm1 + 0.5 * ur * ur * rho;
           phydro->u(IDN, k, j, i) = rho;
           phydro->u(IM1, k, j, i) = rho * ur;
+          phydro->u(IEN, k, j, i) = en_den;
+          phydro->u(IM2, k, j, i) = 0.0;
+          phydro->u(IM3, k, j, i) = 0.0;
+        }
+      }
+    }
+  } else if (ic_mode < 0) {
+    for (int k = ks; k <= ke; k++) {
+      for (int j = js; j <= je; j++) {
+        for (int i = is; i <= ie; i++) {
+          const Real r = pcoord->x1v(i);
+          const Real ur_mag = std::sqrt(GN * mbh / r);
+          const Real rho_r = mdot / (4 * PI * r * r * ur_mag);
+          const Real press = polytropic_constant * std::pow(rho_r, gamma_idx);
+          const Real en_den = press * inv_gm1 + 0.5 * ur_mag * ur_mag * rho_r;
+          phydro->u(IDN, k, j, i) = rho_r;
+          phydro->u(IM1, k, j, i) = rho_r * ur_mag * -1;
           phydro->u(IEN, k, j, i) = en_den;
           phydro->u(IM2, k, j, i) = 0.0;
           phydro->u(IM3, k, j, i) = 0.0;
@@ -327,4 +356,20 @@ void Conductivity(HydroDiffusion *phdif, MeshBlock *pmb,
       }
     }
   }
+}
+
+Real GravityTimeStep(MeshBlock *pmb) {
+  Real min_dt = std::numeric_limits<double>::max();
+  for (int k = pmb->ks; k <= pmb->ke; ++k) {
+    for (int j = pmb->js; j <= pmb->je; ++j) {
+      for (int i = pmb->is; i <= pmb->ie; ++i) {
+        const Real rad = pmb->pcoord->x1v(i);
+        const Real g_r = GN * mbh / (rad * rad);
+        const Real dx = pmb->pcoord->dx1v(i);
+        const Real dt = std::sqrt(dx / g_r);
+        min_dt = std::min(min_dt, dt);
+      }
+    }
+  }
+  return min_dt;
 }
