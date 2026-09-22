@@ -280,16 +280,16 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
       for (int j = js; j <= je; j++) {
         for (int i = is; i <= ie; i++) {
           const Real r = pcoord->x1v(i);
-          //const Real ur_mag = std::sqrt(2*GN * mbh / r);
-          //const Real q = 2.0;
           const Real ur_mag = std::sqrt(GN * mbh/r)*std::pow(r/rB,q);
           const Real rho_r = mdot / (4 * PI * r * r * ur_mag);
+          const Real press = polytropic_constant * std::pow(rho_r, gamma_idx);
+          const Real en_den = press * inv_gm1 + 0.5 * ur_mag * ur_mag * rho_r;
+          //const Real ur_mag = std::sqrt(2*GN * mbh / r);
+          //const Real q = 2.0;
           //const Real r_ref = 1.0e-2*rB;
           //const Real ur_mag_ref = std::sqrt(GN * mbh / r_ref);
           //const Real rho_ref = mdot / (4 * PI * r_ref * r_ref * ur_mag_ref);
           //const Real rho_r = rho_ref * std::pow(r/r_ref,-q);
-          const Real press = polytropic_constant * std::pow(rho_r, gamma_idx);
-          const Real en_den = press * inv_gm1 + 0.5 * ur_mag * ur_mag * rho_r;
           phydro->u(IDN, k, j, i) = rho_r;
           phydro->u(IM1, k, j, i) = rho_r * ur_mag * -1;
           phydro->u(IEN, k, j, i) = en_den;
@@ -340,20 +340,20 @@ void FixedBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim,
   for (int k = kl; k <= ku; ++k) {
     for (int j = jl; j <= ju; ++j) {
       for (int i = 1; i <= ngh; ++i) {
-        // prim(IDN, k, j, iu + ngh) = rho_infty;
+        /prim(IDN, k, j, iu + ngh) = rho_infty;
         // prim(IVX, k, j, iu + ngh) = ur_infty;
         // prim(IPR, k, j, iu + ngh) = pres_infty;
-        //prim(IDN, k, j, iu + i) = rho_infty;
-        //prim(IVX, k, j, iu + i) = ur_infty;
-        //prim(IPR, k, j, iu + i) = pres_infty;
-        const Real r = pcoord->x1v(iu + i);
-        const Real ur_mag = std::sqrt(2*GN * mbh / r);
-        const Real rho_r = mdot / (4.0 * PI * r * r * ur_mag);
-        const Real press = polytropic_constant * std::pow(rho_r, gamma_idx);
+        prim(IDN, k, j, iu + i) = rho_infty;
+        prim(IVX, k, j, iu + i) = ur_infty;
+        prim(IPR, k, j, iu + i) = pres_infty;
+        //const Real r = pcoord->x1v(iu + i);
+        //const Real ur_mag = std::sqrt(2*GN * mbh / r);
+        //const Real rho_r = mdot / (4.0 * PI * r * r * ur_mag);
+        //const Real press = polytropic_constant * std::pow(rho_r, gamma_idx);
 
-        prim(IDN, k, j, iu + i) = rho_r;
-        prim(IVX, k, j, iu + i) = -ur_mag;
-        prim(IPR, k, j, iu + i) = press;
+        //prim(IDN, k, j, iu + i) = rho_r;
+        //prim(IVX, k, j, iu + i) = -ur_mag;
+        //prim(IPR, k, j, iu + i) = press;
       }
     }
   }

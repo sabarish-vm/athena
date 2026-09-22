@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import glob
 import os
 
-# ---------------- CONFIG ----------------
+
 folder = '.'
 
 rB = 1e4
@@ -18,10 +18,7 @@ mbh = 3.404e13
 # Analytic Bondi accretion rate, for comparison against the simulated M(r)
 mdot_analytic = np.pi * GN**2 * mbh**2 * rho_infty / c_s_infty**3
 
-N_EDGE = 10   # cells to look at near each edge for steps 1/2/5
-# -----------------------------------------
-
-# Find and sort snapshots by output number (robust to filename padding)
+N_EDGE = 10   
 files = glob.glob(f'{folder}/Bondi.out1.*.athdf')
 files = sorted(files, key=lambda x: int(os.path.basename(x).split('.')[-2]))
 if not files:
@@ -47,9 +44,6 @@ def M_of_r(r, rho, vel):
     return -4.0 * np.pi * r**2 * rho * vel   # vel<0 inflow -> M>0
 
 
-# ---------------------------------------------------------------------------
-# Step 1: outer M(r) at final snapshot vs analytic mdot
-# ---------------------------------------------------------------------------
 r_last, rho_last, vel_last = load(files[-1])
 M_last = M_of_r(r_last, rho_last, vel_last)
 
@@ -58,9 +52,6 @@ print(f"mdot (analytic)   = {mdot_analytic:.4e}")
 print(f"M at outer edge   = {M_last[-1]:.4e}   "
       f"(ratio = {M_last[-1]/mdot_analytic:.3f})")
 
-# ---------------------------------------------------------------------------
-# Step 2: edge smoothness — rho, u_r near outer edge, first vs last snapshot
-# ---------------------------------------------------------------------------
 r_first, rho_first, vel_first = load(files[0])
 
 fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(14, 5))
@@ -77,9 +68,6 @@ ax2.plot(r_last[-N_EDGE:]/rB, np.abs(vel_last[-N_EDGE:])/c_s_infty, 'o-', color=
 ax2.set_xlabel(r'$r\ [r_B]$'); ax2.set_ylabel(r'$u_r\ [c_{s,\infty}]$')
 ax2.set_title('Velocity near outer edge')
 
-# ---------------------------------------------------------------------------
-# Step 5: inner M(r) trend over time (all snapshots, colored by time)
-# ---------------------------------------------------------------------------
 norm = plt.Normalize(vmin=times_norm.min(), vmax=times_norm.max())
 cmap = plt.cm.copper
 
@@ -101,9 +89,6 @@ outpath = os.path.join('New_plots/Modified_IC/bondi_check_new_bc_times2.png')
 plt.savefig(outpath, bbox_inches='tight')
 print(f"\nSaved plot: {outpath}")
 
-# ---------------------------------------------------------------------------
-# Verdict on inner-region convergence
-# ---------------------------------------------------------------------------
 print("\n=== Step 5: inner M/mdot vs time ===")
 for t, m in zip(times_norm, M_inner):
     print(f"  t/tB={t:.4g}   M/mdot={m/mdot_analytic:.4f}")

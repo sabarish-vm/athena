@@ -18,6 +18,7 @@ c_sinfty = 3.3356409519815205e-05
 ur_infty = 0.0
 mbh = 7.719785599077413e+26
 tB = rB / c_sinfty
+
 folder = '.'
 
 # Find all snapshots
@@ -36,10 +37,10 @@ times = np.array([
 
 times_norm = times / tB
 
-n_total = len(files)        # 101
-n_want = 20                 # however many snapshots you want to plot
+n_total = len(files)        
+n_want = 20                 
 idx = np.linspace(0, n_total - 1, n_want, dtype=int)
-idx = np.unique(idx)        # avoid duplicate indices if n_want > n_total
+idx = np.unique(idx)       
 
 files_plot = [files[i] for i in idx]
 times_norm_plot = times_norm[idx]
@@ -165,54 +166,13 @@ ax3.set_title('Mass accretion')
 ax1.legend()
 ax2.legend()
 ax3.legend()
-"""
-sm = plt.cm.ScalarMappable(
-    cmap=cmap,
-    norm=norm
-)
-sm.set_array([])
 
-cbar = fig.colorbar(
-    sm,
-    ax=(ax1, ax2),
-    pad=0.02
-)
-
-cbar.set_label(r'$t/t_B$')
-"""
 plt.tight_layout()
 
 
 plt.savefig(
-    'Without_conduction/r1.5/sab.pdf',
+    'Without_conduction/r1.5/sabr2.pdf',
     bbox_inches='tight'
 )
 
 plt.show()
-
-
-
-"""
-def load(f):
-    data = yt.load(f)
-    ad = data.all_data()
-    r = ad[('index', 'r')].d
-    order = np.argsort(r)
-    r = r[order]
-    rho = ad[('athena_pp', 'rho')].d[order]
-    vel = ad[('athena_pp', 'vel1')].d[order]
-    return r, rho, vel
-
-mdot_analytic = np.pi * G**2 * mbh**2 * rho_infty / c_sinfty**3
-
-for label, f in [("first (t~0)", files[0]), ("last", files[-1])]:
-    r, rho, vel = load(f)
-    r0, rho0, vel0 = r[:4], rho[:4], vel[:4]     # innermost active cell
-    ur_analytic = np.sqrt(G * mbh / r0)
-    rho_analytic = mdot_analytic / (4 * np.pi * r0**2 * ur_analytic)
-    print(f"--- {label}: {f} ---")
-    print(f"  r0={r0}  rho0={rho0}  vel0={vel0}")
-    print(f"  rho_analytic={rho_analytic}  ur_analytic={ur_analytic}")
-    print(f"  rho0/rho_analytic = {rho0/rho_analytic}   "
-          f"|vel0|/ur_analytic = {abs(vel0)/ur_analytic}")
-"""
