@@ -71,4 +71,3 @@ doc/doxy*
 __pycache__/
 
 # git submodules
-ext/
