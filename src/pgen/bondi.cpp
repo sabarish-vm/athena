@@ -15,7 +15,6 @@
 // C++ headers
 #include <algorithm>
 #include <cmath>
-#include <cstdio>  // fopen(), fprintf(), freopen()
 #include <cstring> // strcmp()
 #include <iomanip>
 #include <iostream>
@@ -244,11 +243,12 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 }
 //========================================================================================
 //! \fn void MeshBlock::ProblemGenerator(ParameterInput *pin)
-//! \brief Spherical blast wave test problem generator
 //========================================================================================
 
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   if (ic_mode > 0) {
+    // Initial conditions for radial range where the profile is not only a power
+    // law. In particular, 1e-2 rB<r<1e2 rB
     auto profile_tuple = init_profile(is, ie, pcoord);
     auto rad_vel_vec = std::get<0>(profile_tuple);
     auto rho_vec = std::get<1>(profile_tuple);
@@ -270,6 +270,8 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
       }
     }
   } else if (ic_mode < 0) {
+    // Initial conditions for inner radial range where the profile is a power
+    // law given Bondi relations law. In particular, r<<rB
     for (int k = ks; k <= ke; k++) {
       for (int j = js; j <= je; j++) {
         for (int i = is; i <= ie; i++) {
@@ -287,6 +289,7 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
       }
     }
   } else {
+    // Uniform initial conditions
     for (int k = ks; k <= ke; k++) {
       for (int j = js; j <= je; j++) {
         for (int i = is; i <= ie; i++) {
