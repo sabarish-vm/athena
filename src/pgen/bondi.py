@@ -90,3 +90,12 @@ def soln(gamma, arr):
     rho_res = np.ascontiguousarray(rho_res)
 
     return mdotval, u_res, rho_res
+
+
+def fit_solns(gamma, delta_index, arr):
+    mdot = mdot0(gamma)
+    r = arr
+    rho = 1 + r ** (-1 * (1.5 + delta_index))
+    ur = -mdot / r**2 / rho
+
+    return mdot, ur, rho
