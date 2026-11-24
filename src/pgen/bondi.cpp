@@ -62,6 +62,10 @@ void Conductivity(HydroDiffusion *phdif, MeshBlock *pmb,
                   const AthenaArray<Real> &prim, const AthenaArray<Real> &bcc,
                   int is, int ie, int js, int je, int ks, int ke);
 
+void Viscosity(HydroDiffusion *phdif, MeshBlock *pmb,
+                  const AthenaArray<Real> &prim, const AthenaArray<Real> &bcc,
+                  int is, int ie, int js, int je, int ks, int ke);
+
 Real GravityTimeStep(MeshBlock *pmb);
 // End of declarations
 
@@ -73,25 +77,22 @@ bool path_exists(const std::string &path) {
 
 std::tuple<py::array_t<Real>, py::array_t<Real>>
 init_profile(const int &is, const int &ie, Coordinates *pcoords) {
-  py::scoped_interpreter guard{};
+  static py::scoped_interpreter guard{};
   // Set paths and check if path exists
   py::module sys = py::module::import("sys");
   sys.attr("path").attr("append")(PGEN_ABSPATH);
-
-  std::string pymod_path =
-      std::string(PGEN_ABSPATH) + std::string("/bondi.py");
-
+  std::string pymod_path = std::string(PGEN_ABSPATH) + std::string("/bondi.py");
   bool module_exists = path_exists(pymod_path);
-
-  if (!module_exists) {
+  if (module_exists) {
+  } else {
     std::stringstream err;
     err << "Python module bondi.py for generating analytical profiles does not "
-          "exist\n";
+           "exist\n";
     err << "Expected path = " << pymod_path;
     throw std::runtime_error(err.str());
   }
 
-    // Import Python module
+  // Import Python module
   py::module_ mymodule = py::module_::import("bondi");
   // Get Python function
   py::object func = mymodule.attr("soln");
@@ -103,7 +104,7 @@ init_profile(const int &is, const int &ie, Coordinates *pcoords) {
     const Real r = pcoords->x1v(i) / rB;
     vec.push_back(r);
   }
- 
+
   // Create a numpy array
   py::array_t<Real> input_arr(vec.size(), vec.data());
 
@@ -155,6 +156,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   // Enroll Conductivity function
   if (sbm_cgs > 0.0) {
     EnrollConductionCoefficient(Conductivity);
+    //EnrollViscosityCoefficient(Viscosity);
   }
 
   // Setup derived parameters
@@ -252,9 +254,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   if (ic_mode > 0) {
-    std::cout << "Before" << std::endl;
     auto profile_tuple = init_profile(is, ie, pcoord);
-    std::cout << "after" << std::endl;
     auto rad_vel_vec = std::get<0>(profile_tuple);
     auto rho_vec = std::get<1>(profile_tuple);
     for (int k = ks; k <= ke; k++) {
@@ -275,21 +275,16 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
       }
     }
   } else if (ic_mode < 0) {
-    const Real q = pin->GetReal("problem", "q_powerlaw");
+    //const Real q = pin->GetReal("problem", "q_powerlaw");
     for (int k = ks; k <= ke; k++) {
       for (int j = js; j <= je; j++) {
         for (int i = is; i <= ie; i++) {
           const Real r = pcoord->x1v(i);
-          const Real ur_mag = std::sqrt(GN * mbh/r)*std::pow(r/rB,q);
+          const Real ur_mag = std::sqrt(GN * mbh / r);
+          //const Real ur_mag = std::sqrt(GN * mbh/r)*std::pow(r/rB,q);
           const Real rho_r = mdot / (4 * PI * r * r * ur_mag);
           const Real press = polytropic_constant * std::pow(rho_r, gamma_idx);
           const Real en_den = press * inv_gm1 + 0.5 * ur_mag * ur_mag * rho_r;
-          //const Real ur_mag = std::sqrt(2*GN * mbh / r);
-          //const Real q = 2.0;
-          //const Real r_ref = 1.0e-2*rB;
-          //const Real ur_mag_ref = std::sqrt(GN * mbh / r_ref);
-          //const Real rho_ref = mdot / (4 * PI * r_ref * r_ref * ur_mag_ref);
-          //const Real rho_r = rho_ref * std::pow(r/r_ref,-q);
           phydro->u(IDN, k, j, i) = rho_r;
           phydro->u(IM1, k, j, i) = rho_r * ur_mag * -1;
           phydro->u(IEN, k, j, i) = en_den;
@@ -340,20 +335,20 @@ void FixedBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim,
   for (int k = kl; k <= ku; ++k) {
     for (int j = jl; j <= ju; ++j) {
       for (int i = 1; i <= ngh; ++i) {
-        /prim(IDN, k, j, iu + ngh) = rho_infty;
+        //prim(IDN, k, j, iu + ngh) = rho_infty;
         // prim(IVX, k, j, iu + ngh) = ur_infty;
         // prim(IPR, k, j, iu + ngh) = pres_infty;
-        prim(IDN, k, j, iu + i) = rho_infty;
-        prim(IVX, k, j, iu + i) = ur_infty;
-        prim(IPR, k, j, iu + i) = pres_infty;
-        //const Real r = pcoord->x1v(iu + i);
-        //const Real ur_mag = std::sqrt(2*GN * mbh / r);
-        //const Real rho_r = mdot / (4.0 * PI * r * r * ur_mag);
-        //const Real press = polytropic_constant * std::pow(rho_r, gamma_idx);
+        //prim(IDN, k, j, iu + i) = rho_infty;
+        //prim(IVX, k, j, iu + i) = ur_infty;
+        //prim(IPR, k, j, iu + i) = pres_infty;
+        const Real r = pcoord->x1v(iu + i);
+        const Real ur_mag = std::sqrt(GN * mbh / r);
+        const Real rho_r = mdot / (4.0 * PI * r * r * ur_mag);
+        const Real press = polytropic_constant * std::pow(rho_r, gamma_idx);
 
-        //prim(IDN, k, j, iu + i) = rho_r;
-        //prim(IVX, k, j, iu + i) = -ur_mag;
-        //prim(IPR, k, j, iu + i) = press;
+        prim(IDN, k, j, iu + i) = rho_r;
+        prim(IVX, k, j, iu + i) = -ur_mag;
+        prim(IPR, k, j, iu + i) = press;
       }
     }
   }
@@ -373,6 +368,23 @@ void Conductivity(HydroDiffusion *phdif, MeshBlock *pmb,
               2.1 * std::sqrt(press) / std::pow(den, 1.5) / sbm_code;
           phdif->kappa(HydroDiffusion::DiffProcess::iso, k, j, i) = kappa_smfp;
         }
+      }
+    }
+  }
+}
+
+void Viscosity(HydroDiffusion *phdif, MeshBlock *pmb,
+               const AthenaArray<Real> &prim, const AthenaArray<Real> &bcc,
+               int is, int ie, int js, int je, int ks, int ke) {
+  const Real prandtl_factor = 4.0 / 15.0;  // nu = (4/15) * kappa for Pr = 2/3
+  for (int k = ks; k <= ke; ++k) {
+    for (int j = js; j <= je; ++j) {
+      for (int i = is; i <= ie; ++i) {
+        Real den   = prim(IDN, k, j, i);
+        Real press = prim(IPR, k, j, i);
+        Real kappa_smfp = 2.1 * std::sqrt(press) / std::pow(den, 1.5) / sbm_code;
+        phdif->nu(HydroDiffusion::DiffProcess::iso, k, j, i) =
+            prandtl_factor * kappa_smfp;
       }
     }
   }
