@@ -69,5 +69,3 @@ doc/doxy*
 
 # python ignore
 __pycache__/
-
-# git submodules
